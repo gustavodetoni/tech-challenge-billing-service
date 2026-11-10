@@ -1,0 +1,12 @@
+mode: atomic
+github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:5.61,6.19 1 4
+github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:6.19,8.3 1 1
+github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:9.2,9.22 1 3
+github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:9.22,11.3 1 2
+github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:12.2,12.12 1 1
+github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:15.74,16.61 1 4
+github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:16.61,18.3 1 2
+github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:19.2,19.61 1 2
+github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:19.61,21.3 1 1
+github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:22.2,22.44 1 1
+github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:25.50,25.87 1 1

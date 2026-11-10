@@ -1,0 +1,23 @@
+name: CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions: {contents: read}
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with: {go-version-file: go.mod}
+      - run: go mod download
+      - run: gofmt -w cmd && git diff --exit-code
+      - run: go vet ./...
+      - run: go test ./...
+      - run: go test ./tests -coverpkg=./internal/application -covermode=atomic -coverprofile=coverage.out
+      - run: |
+          total="$$(go tool cover -func=coverage.out | awk '/^total:/ {gsub("%", "", $$NF); print $$NF}')"
+          awk -v total="$$total" 'BEGIN { if ((total + 0) < 80) exit 1 }'
+      - run: go build ./...

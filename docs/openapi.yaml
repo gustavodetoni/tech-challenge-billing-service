@@ -1,0 +1,45 @@
+openapi: 3.0.3
+info:
+  title: Billing Service
+  version: 1.0.0
+  description: Orçamentos e pagamentos integrados ao Mercado Pago.
+servers:
+  - url: http://localhost:8082
+paths:
+  /health:
+    get: {summary: Healthcheck, responses: {"200": {description: OK}}}
+  /quotes:
+    post:
+      summary: Cria orçamento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order_id, amount_cents]
+              properties:
+                order_id: {type: string, format: uuid}
+                amount_cents: {type: integer, format: int64, example: 15000}
+      responses: {"201": {description: Orçamento criado}, "400": {description: Entrada inválida}}
+  /quotes/{id}:
+    get:
+      summary: Consulta orçamento
+      parameters: [{name: id, in: path, required: true, schema: {type: string, format: uuid}}]
+      responses: {"200": {description: Orçamento encontrado}, "404": {description: Não encontrado}}
+  /payments:
+    post:
+      summary: Cria preferência de pagamento no Mercado Pago
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [quote_id], properties: {quote_id: {type: string, format: uuid}}}
+      responses: {"202": {description: Pagamento pendente}, "502": {description: Mercado Pago indisponível}}
+  /webhooks/mercadopago:
+    post:
+      summary: Webhook de status do pagamento
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object}}}
+      responses: {"200": {description: Webhook processado}, "202": {description: Evento ignorado}}

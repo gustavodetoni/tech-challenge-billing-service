@@ -1,0 +1,23 @@
+name: Deploy Billing Service
+on:
+  workflow_dispatch:
+    inputs:
+      environment: {description: Environment, required: true, default: homolog, type: choice, options: [homolog, prod]}
+      image_tag: {description: Image tag, required: true, default: latest, type: string}
+permissions: {contents: read}
+env: {IMAGE: docker.io/gustavodetoni/tech-challenge-billing-service, DEPLOYMENT: tech-challenge-billing-service, CONTAINER: api, NAMESPACE: tech-challenge}
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment == 'prod' && 'production' || 'homolog' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/login-action@v3
+        with: {username: ${{ secrets.DOCKERHUB_USERNAME }}, password: ${{ secrets.DOCKERHUB_TOKEN }}}
+      - uses: docker/build-push-action@v6
+        with: {context: ., push: true, tags: ${{ env.IMAGE }}:${{ inputs.image_tag }} }
+      - uses: aws-actions/configure-aws-credentials@v5
+        with: {aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}, aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}, aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}, aws-region: us-east-1}
+      - uses: azure/setup-kubectl@v4
+      - run: aws eks update-kubeconfig --region us-east-1 --name tech-challenge-${{ inputs.environment }}-eks
+      - run: kubectl -n $NAMESPACE set image deployment/$DEPLOYMENT $CONTAINER=$IMAGE:${{ inputs.image_tag }} && kubectl -n $NAMESPACE rollout status deployment/$DEPLOYMENT --timeout=300s
