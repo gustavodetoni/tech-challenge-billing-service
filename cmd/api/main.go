@@ -191,6 +191,7 @@ func (a *App) consumeOrders() {
 	defer ch.Close()
 	_, _ = ch.QueueDeclare("billing-service-orders", true, false, false, false, nil)
 	_ = ch.QueueBind("billing-service-orders", "order.ServiceOrderCreated", "tech-challenge.events", false, nil)
+	_ = ch.QueueBind("billing-service-orders", "order.PaymentRefundRequested", "tech-challenge.events", false, nil)
 	msgs, err := ch.Consume("billing-service-orders", "billing-service", false, false, false, false, nil)
 	if err != nil {
 		return
@@ -198,6 +199,11 @@ func (a *App) consumeOrders() {
 	for msg := range msgs {
 		var e Event
 		if json.Unmarshal(msg.Body, &e) == nil {
+			if e.Type == "PaymentRefundRequested" {
+				_ = a.refundByOrder(context.Background(), e.OrderID)
+				_ = msg.Ack(false)
+				continue
+			}
 			if data, ok := e.Data.(map[string]any); ok {
 				amount, _ := data["amount_cents"].(float64)
 				_, _ = a.db.Exec(`INSERT INTO quotes(id,order_id,amount_cents,status,created_at) VALUES($1,$2,$3,'PENDING_APPROVAL',$4) ON CONFLICT(order_id) DO NOTHING`, uuid.New(), e.OrderID, int64(amount), time.Now().UTC())
@@ -205,6 +211,29 @@ func (a *App) consumeOrders() {
 		}
 		_ = msg.Ack(false)
 	}
+}
+func (a *App) refundByOrder(ctx context.Context, orderID string) error {
+	var quoteID, paymentID string
+	if err := a.db.QueryRowContext(ctx, `SELECT id,COALESCE(payment_id,'') FROM quotes WHERE order_id=$1`, orderID).Scan(&quoteID, &paymentID); err != nil {
+		return err
+	}
+	if paymentID != "" && a.mercado.token != "" && !strings.HasPrefix(paymentID, "simulated-") {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.mercado.baseURL+"/v1/payments/"+paymentID+"/refunds", nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Authorization", "Bearer "+a.mercado.token)
+		res, err := a.mercado.client.Do(req)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+		if res.StatusCode >= 300 {
+			return fmt.Errorf("Mercado Pago refund status %d", res.StatusCode)
+		}
+	}
+	_, err := a.db.ExecContext(ctx, `UPDATE quotes SET status='REFUNDED' WHERE id=$1`, quoteID)
+	return err
 }
 func (m *MercadoPago) createPreference(ctx context.Context, q Quote) (string, error) {
 	payload := map[string]any{"items": []any{map[string]any{"title": "Orçamento da OS " + q.OrderID, "quantity": 1, "unit_price": float64(q.AmountCents) / 100}}}
