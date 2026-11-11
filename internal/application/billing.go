@@ -23,3 +23,10 @@ func PaymentStatusFromWebhook(status, eventType string) (string, string) {
 }
 
 func PreferenceAmount(amountCents int64) float64 { return float64(amountCents) / 100 }
+
+func CompensationForPayment(status string) string {
+	if status == "PAID" || status == "PAYMENT_PENDING" {
+		return "REFUND_PAYMENT"
+	}
+	return "NO_COMPENSATION"
+}

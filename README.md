@@ -70,9 +70,19 @@ Exchange: `tech-challenge.events`.
 - Consome `order.ServiceOrderCreated` na fila `billing-service-orders`.
 - Publica eventos com routing key `billing.<event_type>`.
 
-## Saga
+## Saga e compensação
 
-O Billing Service participa da Saga orquestrada iniciada pelo OS Service. O pagamento confirmado libera o Execution Service. Em falha posterior à confirmação, a compensação esperada é o estorno do pagamento; o endpoint de estorno automático ainda precisa ser concluído.
+O Billing Service participa da Saga orquestrada iniciada pelo OS Service. O fluxo normal é:
+
+```text
+ServiceOrderCreated
+→ orçamento criado
+→ pagamento no Mercado Pago
+→ webhook aprovado
+→ PaymentConfirmed
+```
+
+Quando o Execution Service publica `ExecutionFailed`, o OS Service publica `PaymentRefundRequested`. O Billing Service localiza o pagamento pelo `order_id`, chama `POST /v1/payments/{payment_id}/refunds` no Mercado Pago quando há token real e marca o orçamento como `REFUNDED`. Pagamentos simulados também são marcados como reembolsados.
 
 ## Execução
 
@@ -90,6 +100,18 @@ docker compose -f ../tech-challenge-project/docker-compose.phase4.yml up --build
 
 Os Secrets necessários são `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` e `SONAR_TOKEN`.
 
-## Testes
+## Testes e cobertura
 
-Os testes ficam exclusivamente em [tests](tests). A cobertura das regras de aplicação é 100% atualmente e o CI exige pelo menos 80% nesse pacote. Ainda faltam testes de integração HTTP, PostgreSQL, RabbitMQ e Mercado Pago.
+Os testes unitários ficam exclusivamente em [tests](tests).
+
+```bash
+make tests
+```
+
+Cobertura atual:
+
+```text
+internal/application: 100%
+```
+
+O CI exige no mínimo 80% do pacote de regras de negócio e cobre validação de orçamento, estados de pagamento, conversão monetária e compensação de pagamentos.

@@ -10,3 +10,6 @@ github.com/gustavodetoni/tech-challenge-billing-service/internal/application/bil
 github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:19.61,21.3 1 1
 github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:22.2,22.44 1 1
 github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:25.50,25.87 1 1
+github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:27.51,28.53 1 4
+github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:28.53,30.3 1 2
+github.com/gustavodetoni/tech-challenge-billing-service/internal/application/billing.go:31.2,31.26 1 2

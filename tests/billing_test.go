@@ -38,3 +38,12 @@ func TestPreferenceAmount(t *testing.T) {
 		t.Fatalf("got %v want 150", got)
 	}
 }
+
+func TestCompensationForPayment(t *testing.T) {
+	cases := map[string]string{"PAID": "REFUND_PAYMENT", "PAYMENT_PENDING": "REFUND_PAYMENT", "PAYMENT_FAILED": "NO_COMPENSATION", "REFUNDED": "NO_COMPENSATION"}
+	for status, want := range cases {
+		if got := application.CompensationForPayment(status); got != want {
+			t.Errorf("%s: got %s want %s", status, got, want)
+		}
+	}
+}
