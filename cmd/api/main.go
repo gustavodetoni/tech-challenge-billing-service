@@ -129,6 +129,8 @@ func (a *App) createPayment(w http.ResponseWriter, r *http.Request) {
 	if a.mercado.token != "" {
 		paymentID, err = a.mercado.createPreference(r.Context(), q)
 		if err != nil {
+			_, _ = a.db.ExecContext(r.Context(), `UPDATE quotes SET status='PAYMENT_FAILED' WHERE id=$1`, q.ID)
+			a.publish(Event{ID: uuid.NewString(), Type: "PaymentFailed", OrderID: q.OrderID, OccurredAt: time.Now().UTC(), Data: map[string]string{"reason": "Mercado Pago unavailable", "quote_id": q.ID}})
 			jsonResponse(w, 502, map[string]string{"error": "Mercado Pago unavailable"})
 			return
 		}
@@ -167,8 +169,10 @@ func (a *App) webhook(w http.ResponseWriter, r *http.Request) {
 	status := "PAYMENT_PENDING"
 	eventType := "PaymentPending"
 	if in.Status == "approved" || in.Type == "payment.approved" {
-		status = "PAID"
-		eventType = "PaymentConfirmed"
+		status, eventType = "PAID", "PaymentConfirmed"
+	}
+	if in.Status == "rejected" || in.Status == "cancelled" || in.Type == "payment.rejected" {
+		status, eventType = "PAYMENT_FAILED", "PaymentFailed"
 	}
 	_, _ = a.db.ExecContext(r.Context(), `UPDATE quotes SET status=$1 WHERE id=$2`, status, q.ID)
 	e := Event{ID: uuid.NewString(), Type: eventType, OrderID: q.OrderID, OccurredAt: time.Now().UTC(), Data: map[string]string{"payment_id": paymentID, "quote_id": q.ID}}
@@ -206,7 +210,9 @@ func (a *App) consumeOrders() {
 			}
 			if data, ok := e.Data.(map[string]any); ok {
 				amount, _ := data["amount_cents"].(float64)
-				_, _ = a.db.Exec(`INSERT INTO quotes(id,order_id,amount_cents,status,created_at) VALUES($1,$2,$3,'PENDING_APPROVAL',$4) ON CONFLICT(order_id) DO NOTHING`, uuid.New(), e.OrderID, int64(amount), time.Now().UTC())
+				if _, insertErr := a.db.Exec(`INSERT INTO quotes(id,order_id,amount_cents,status,created_at) VALUES($1,$2,$3,'PENDING_APPROVAL',$4) ON CONFLICT(order_id) DO NOTHING`, uuid.New(), e.OrderID, int64(amount), time.Now().UTC()); insertErr != nil {
+					a.publish(Event{ID: uuid.NewString(), Type: "QuoteCreationFailed", SagaID: e.SagaID, OrderID: e.OrderID, OccurredAt: time.Now().UTC(), Data: map[string]string{"reason": insertErr.Error()}})
+				}
 			}
 		}
 		_ = msg.Ack(false)

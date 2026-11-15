@@ -84,6 +84,8 @@ ServiceOrderCreated
 
 Quando o Execution Service publica `ExecutionFailed`, o OS Service publica `PaymentRefundRequested`. O Billing Service localiza o pagamento pelo `order_id`, chama `POST /v1/payments/{payment_id}/refunds` no Mercado Pago quando há token real e marca o orçamento como `REFUNDED`. Pagamentos simulados também são marcados como reembolsados.
 
+Falhas de cobrança também publicam `PaymentFailed` (pagamento recusado ou Mercado Pago indisponível). Falhas na criação automática do orçamento publicam `QuoteCreationFailed`; nesses casos o OS Service cancela a ordem sem tentar estornar um pagamento que não foi confirmado.
+
 ## Execução
 
 ```bash
@@ -115,3 +117,22 @@ internal/application: 100%
 ```
 
 O CI exige no mínimo 80% do pacote de regras de negócio e cobre validação de orçamento, estados de pagamento, conversão monetária e compensação de pagamentos.
+
+## Aderência à Fase 4
+
+| Requisito | Implementação |
+|---|---|
+| Microsserviço independente | Módulo Go, Dockerfile, CI, Sonar e deploy próprios. |
+| Banco próprio | PostgreSQL exclusivo do Billing Service. |
+| Orçamento e pagamento | Criação de orçamento, pagamento e webhook Mercado Pago. |
+| Mensageria | Consome `ServiceOrderCreated` e publica eventos de cobrança. |
+| Saga | Participa da Saga orquestrada pelo OS Service. |
+| Compensação | Consome `PaymentRefundRequested` e executa estorno. |
+| Qualidade | Testes unitários, cobertura e SonarQube. |
+| Kubernetes | Deployment e Service estão centralizados no [tech-challenge-infra-k8s](../tech-challenge-infra-k8s/k8s/base/microservices.yaml). |
+
+## Manifestos Kubernetes
+
+Os manifestos Kubernetes são mantidos centralizadamente em [tech-challenge-infra-k8s](../tech-challenge-infra-k8s/k8s/base/microservices.yaml). Essa separação concentra no repositório de infraestrutura os recursos compartilhados do cluster, Secrets, RabbitMQ, MongoDB e bootstrap do banco.
+
+O workflow deste repositório constrói/publica a imagem `tech-challenge-billing-service` e atualiza o Deployment correspondente no Kubernetes.
